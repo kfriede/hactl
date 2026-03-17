@@ -19,6 +19,8 @@ func init() {
 	// Update command flags
 	entityUpdateCmd.Flags().String("state", "", "Entity state value")
 	entityUpdateCmd.Flags().String("json-input", "", "Full JSON body with state and attributes")
+	entityUpdateCmd.Flags().String("attributes", "", "JSON object of entity attributes")
+	entityUpdateCmd.Flags().Bool("force-update", false, "Force state change even if value is unchanged")
 
 	// History command flags
 	entityHistoryCmd.Flags().String("start", "", "Start timestamp (YYYY-MM-DDThh:mm:ssTZD)")
@@ -94,7 +96,9 @@ To control devices, use 'hactl service call'.
 
 Examples:
   hactl entity update sensor.temp --state 25
-  hactl entity update sensor.temp --json-input '{"state":"25","attributes":{"unit_of_measurement":"°C"}}'`,
+  hactl entity update sensor.temp --state 25 --attributes '{"unit_of_measurement":"°C"}'
+  hactl entity update sensor.temp --state 25 --force-update
+  hactl entity update sensor.temp --json-input '{"state":"25","attributes":{"unit_of_measurement":"°C"},"force_update":true}'`,
 	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		entityID := args[0]
@@ -127,6 +131,18 @@ Examples:
 				return fmt.Errorf("--state or --json-input is required")
 			}
 			body = map[string]any{"state": state}
+
+			if attrsStr, _ := cmd.Flags().GetString("attributes"); attrsStr != "" {
+				attrs, attrErr := parseJSONInput(attrsStr)
+				if attrErr != nil {
+					return fmt.Errorf("invalid attributes JSON: %w", attrErr)
+				}
+				body["attributes"] = attrs
+			}
+		}
+
+		if forceUpdate, _ := cmd.Flags().GetBool("force-update"); forceUpdate {
+			body["force_update"] = true
 		}
 
 		respData, err := client.Post("/api/states/"+entityID, body)

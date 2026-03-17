@@ -117,7 +117,9 @@ func buildSchemaRegistry() map[string]SchemaEntry {
 			Parameters: []SchemaParam{{Name: "entity_id", Type: "string", Required: true, In: "path"}},
 			Flags: []SchemaFlag{
 				{Name: "state", Type: "string", Desc: "Entity state value"},
-				{Name: "json-input", Type: "string", Desc: "Full JSON body with state and attributes"},
+				{Name: "attributes", Type: "string", Desc: "JSON object of entity attributes"},
+				{Name: "force-update", Type: "bool", Desc: "Force state change even if value unchanged"},
+				{Name: "json-input", Type: "string", Desc: "Full JSON body with state, attributes, and force_update"},
 			},
 		},
 		"entity.delete": {
@@ -212,7 +214,10 @@ func buildSchemaRegistry() map[string]SchemaEntry {
 			Method: "GET", Path: "/api/camera_proxy/{entity_id}",
 			Example:    "hactl camera snapshot camera.front_door -O snapshot.jpg",
 			Parameters: []SchemaParam{{Name: "entity_id", Type: "string", Required: true, In: "path"}},
-			Flags:      []SchemaFlag{{Name: "output-file", Type: "string", Desc: "Output file path"}},
+			Flags: []SchemaFlag{
+				{Name: "output-file", Type: "string", Desc: "Output file path"},
+				{Name: "time", Type: "string", Desc: "Unix timestamp for cache-busting (forces fresh snapshot)"},
+			},
 		},
 
 		// Calendar

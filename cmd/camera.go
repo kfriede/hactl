@@ -11,6 +11,7 @@ func init() {
 	cameraCmd.AddCommand(cameraSnapshotCmd)
 
 	cameraSnapshotCmd.Flags().StringP("output-file", "O", "", "Output file path (default: <entity_id>.jpg)")
+	cameraSnapshotCmd.Flags().String("time", "", "Unix timestamp for cache-busting (forces fresh snapshot)")
 }
 
 var cameraCmd = &cobra.Command{
@@ -30,7 +31,8 @@ var cameraSnapshotCmd = &cobra.Command{
 
 Examples:
   hactl camera snapshot camera.front_door
-  hactl camera snapshot camera.front_door -O /tmp/snapshot.jpg`,
+  hactl camera snapshot camera.front_door -O /tmp/snapshot.jpg
+  hactl camera snapshot camera.front_door --time 1703089200`,
 	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		entityID := args[0]
@@ -44,7 +46,12 @@ Examples:
 			return err
 		}
 
-		if err := client.GetToFile("/api/camera_proxy/"+entityID, outputFile); err != nil {
+		path := "/api/camera_proxy/" + entityID
+		if timeVal, _ := cmd.Flags().GetString("time"); timeVal != "" {
+			path += "?time=" + timeVal
+		}
+
+		if err := client.GetToFile(path, outputFile); err != nil {
 			return err
 		}
 
