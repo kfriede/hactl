@@ -1,0 +1,66 @@
+version: 2
+
+project_name: hactl
+
+before:
+  hooks:
+    - go mod tidy
+    - go test ./...
+
+builds:
+  - main: .
+    binary: hactl
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w
+      - -X github.com/kfriede/hactl/cmd.Version={{.Version}}
+      - -X github.com/kfriede/hactl/cmd.Commit={{.ShortCommit}}
+      - -X github.com/kfriede/hactl/cmd.BuildDate={{.Date}}
+
+archives:
+  - formats:
+      - tar.gz
+    format_overrides:
+      - goos: windows
+        formats:
+          - zip
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+
+checksum:
+  name_template: "checksums.txt"
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^chore:"
+
+release:
+  github:
+    owner: kfriede
+    name: hactl
+
+brews:
+  - repository:
+      owner: kfriede
+      name: homebrew-tap
+      token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"
+    directory: Formula
+    homepage: "https://github.com/kfriede/hactl"
+    description: "Command-line interface for Home Assistant — built for humans and LLM agents"
+    license: "MIT"
+    install: |
+      bin.install "hactl"
+      generate_completions_from_executable(bin/"hactl", "completion")
+    test: |
+      system "#{bin}/hactl", "version"

@@ -1,0 +1,32 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "hactl",
+  "version": "0.1.0",
+  "description": "Manage your Home Assistant instance using the hactl CLI",
+  "owner": {
+    "name": "Kevin Friede",
+    "url": "https://github.com/kfriede/hactl"
+  },
+  "plugins": [
+    {
+      "name": "hactl",
+      "source": "./plugins/hactl",
+      "version": "0.1.0",
+      "description": "Manage Home Assistant entities, services, events, and more via CLI. Built for both humans and AI agents.",
+      "author": {
+        "name": "Kevin Friede"
+      },
+      "license": "MIT",
+      "category": "home-automation",
+      "keywords": [
+        "home-assistant",
+        "smart-home",
+        "iot",
+        "cli"
+      ],
+      "skills": [
+        "./skills/hactl-manager/SKILL.md"
+      ]
+    }
+  ]
+}
