@@ -1,0 +1,87 @@
+name: Watch Home Assistant REST API
+
+on:
+  schedule:
+    - cron: '0 9 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  issues: write
+
+jobs:
+  check-api-updates:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check HA REST docs hash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          DOCS_URL="https://raw.githubusercontent.com/home-assistant/developers.home-assistant/master/docs/api/rest.md"
+          curl -sfL "$DOCS_URL" -o /tmp/ha-rest.md
+          HASH=$(sha256sum /tmp/ha-rest.md | awk '{print $1}')
+          CORE=$(gh api repos/home-assistant/core/releases/latest --jq .tag_name)
+          echo "rest_docs_sha256=$HASH ha_core=$CORE"
+
+          TRACKED_HASH=""
+          TRACKED_CORE=""
+          if [ -f .api-versions ]; then
+            TRACKED_HASH=$(grep '^rest_docs_sha256=' .api-versions | cut -d= -f2 || true)
+            TRACKED_CORE=$(grep '^ha_core=' .api-versions | cut -d= -f2 || true)
+          fi
+
+          mkdir -p .
+          if [ -z "$TRACKED_HASH" ]; then
+            echo "First run — recording baseline"
+            printf 'rest_docs_sha256=%s\nha_core=%s\n' "$HASH" "$CORE" > .api-versions
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git add .api-versions
+            git diff --cached --quiet || git commit -m "chore: baseline HA REST docs / core ${CORE}"
+            git diff --quiet HEAD origin/main || git push
+            exit 0
+          fi
+
+          DOCS_CHANGED=false
+          if [ "$HASH" != "$TRACKED_HASH" ]; then
+            DOCS_CHANGED=true
+          fi
+
+          if [ "$DOCS_CHANGED" = true ]; then
+            TITLE="HA REST docs changed (core ${CORE})"
+            if gh issue list --repo kfriede/hactl --label api-update --state open --json title -q '.[].title' | grep -Fqx "$TITLE"; then
+              echo "Issue already open."
+            else
+              gh issue create --repo kfriede/hactl --title "$TITLE" --label api-update --body "$(cat <<EOF
+          Home Assistant REST documentation changed.
+
+          - **Previous docs sha256**: \`${TRACKED_HASH}\`
+          - **New docs sha256**: \`${HASH}\`
+          - **Previous HA core**: ${TRACKED_CORE}
+          - **Latest HA core**: ${CORE}
+          - **Docs**: https://developers.home-assistant.io/docs/api/rest/
+
+          Core version bumps without a docs-hash change are ignored (REST rarely moves).
+
+          ### Action
+          - [ ] Diff REST endpoints vs \`cmd/*.go\`
+          - [ ] Add commands only for documented new endpoints
+          - [ ] Tests + patch/minor release
+          EOF
+          )"
+            fi
+          else
+            echo "REST docs unchanged (core ${TRACKED_CORE} -> ${CORE} recorded only)."
+          fi
+
+          printf 'rest_docs_sha256=%s\nha_core=%s\n' "$HASH" "$CORE" > .api-versions
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add .api-versions
+          if ! git diff --cached --quiet; then
+            git commit -m "chore: track HA REST docs / core ${CORE}"
+            git push
+          fi
